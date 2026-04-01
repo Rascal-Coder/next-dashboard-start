@@ -166,7 +166,7 @@ function startDataGridColumnResizeOnEnd<TData>(
   const updateOffset = (clientXPos?: number, commit = false) => {
     if (typeof clientXPos !== "number") return
 
-    let nextColumnSizing: Record<string, number> = {}
+    const nextColumnSizing: Record<string, number> = {}
     const deltaOffset = (clientXPos - dragStartClientX) * directionMultiplier
     const deltaPercentage = Math.max(deltaOffset / startSize, -0.999999)
 
@@ -495,6 +495,7 @@ function DataGridTableViewport({
 
   useEffect(() => {
     if (!viewportElement || !props.tableLayout?.columnsResizable) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setContainerWidth(0)
       return
     }
