@@ -3,7 +3,7 @@
 import { useRouter } from '@bprogress/next/app';
 import { type FC } from 'react';
 
-import { Button } from '@/components/animate-ui/components/buttons/button';
+import { RippleButton } from '@/components/animate-ui/components/buttons/ripple';
 
 const NotFound: FC = () => {
   const router = useRouter();
@@ -15,7 +15,7 @@ const NotFound: FC = () => {
           It seems that this page has gone on a round-the-world trip and hasn&apos;t sent the postcard back yet.
         </p>
         <div className="flex items-center justify-center mt-10">
-          <Button onClick={() => router.push('/')}>Go back home</Button>
+          <RippleButton type="button" className="cursor-pointer" onClick={() => router.push('/')}>Go back home</RippleButton>
         </div>
       </div>
     </div>
