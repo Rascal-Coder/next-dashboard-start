@@ -15,7 +15,7 @@ const NotFound: FC = () => {
           It seems that this page has gone on a round-the-world trip and hasn&apos;t sent the postcard back yet.
         </p>
         <div className="flex items-center justify-center mt-10">
-          <Button onClick={() => router.push('/dashboard')}>Go back home</Button>
+          <Button onClick={() => router.push('/')}>Go back home</Button>
         </div>
       </div>
     </div>

@@ -243,6 +243,10 @@ function TooltipOverlay() {
   }>({ data: null, open: false });
 
   const arrowRef = React.useRef<SVGSVGElement | null>(null);
+  // 箭头节点用 state 传给 floatingArrow：传 ref 会在渲染期触发对 .current 的访问，违反 React 19 规则
+  const [arrowElement, setArrowElement] = React.useState<SVGSVGElement | null>(
+    null,
+  );
 
   const side = rendered.data?.side ?? 'top';
   const align = rendered.data?.align ?? 'center';
@@ -257,9 +261,17 @@ function TooltipOverlay() {
       }),
       flip(),
       shift({ padding: 8 }),
-      floatingArrow({ element: arrowRef }),
+      floatingArrow({ element: arrowElement }),
     ],
   });
+
+  // 避免在 JSX 中直接传 refs.setFloating（会被判定为渲染期访问 ref 相关 API）
+  const setFloatingRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      refs.setFloating(node);
+    },
+    [refs],
+  );
 
   React.useEffect(() => {
     if (currentTooltip) {
@@ -269,14 +281,16 @@ function TooltipOverlay() {
     }
   }, [currentTooltip]);
 
+  const ready = x != null && y != null;
+
   React.useLayoutEffect(() => {
+    setArrowElement(arrowRef.current);
     if (referenceElRef.current) {
       refs.setReference(referenceElRef.current);
       update();
     }
-  }, [referenceElRef, refs, update, rendered.data]);
+  }, [referenceElRef, refs, update, rendered.data, ready, x, y]);
 
-  const ready = x != null && y != null;
   const Component = rendered.data?.contentAsChild ? Slot : motion.div;
   const resolvedSide = getResolvedSide(context.placement);
 
@@ -285,7 +299,7 @@ function TooltipOverlay() {
       {rendered.data && ready && (
         <TooltipPortal>
           <div
-            ref={refs.setFloating}
+            ref={setFloatingRef}
             data-slot="tooltip-overlay"
             data-side={resolvedSide}
             data-align={rendered.data.align}

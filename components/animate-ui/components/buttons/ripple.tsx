@@ -31,11 +31,12 @@ function RippleButton({
   size,
   ...props
 }: RippleButtonProps) {
+  const resolvedVariant = variant ?? 'default';
   return (
     <RippleButtonPrimitive
       className={cn(
         buttonVariants({ variant, size, className }),
-        rippleButtonVariants[variant as keyof typeof rippleButtonVariants],
+        rippleButtonVariants[resolvedVariant],
       )}
       {...props}
     />

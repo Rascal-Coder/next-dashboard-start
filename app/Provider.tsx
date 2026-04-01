@@ -1,5 +1,7 @@
 "use client";
 
+import { ThemeProvider } from "@/components/theme-provider";
+import { SidebarConfigProvider } from "@/contexts/sidebar-context";
 import { ProgressProvider } from "@bprogress/next/app";
 
 type ProvidersProps = {
@@ -11,13 +13,16 @@ type ProvidersProps = {
  */
 export function Providers({ children }: ProvidersProps) {
   return (
-    <ProgressProvider
-      color="var(--foreground)"
-      height="3px"
-      options={{ showSpinner: true }}
-      shallowRouting
-    >
-      {children}
-    </ProgressProvider>
+    <ThemeProvider defaultTheme="system" storageKey="nextjs-ui-theme">
+      <ProgressProvider
+        color="var(--primary)"
+        options={{ showSpinner: true }}
+        shallowRouting
+      >
+        <SidebarConfigProvider>
+          {children}
+        </SidebarConfigProvider>
+      </ProgressProvider>
+    </ThemeProvider>
   );
 }
