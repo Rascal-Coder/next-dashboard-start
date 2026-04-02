@@ -58,29 +58,6 @@ const data = {
       label: "Pages",
       items: [
         {
-          title: "Auth Pages",
-          url: "#",
-          icon: Shield,
-          items: [
-            {
-              title: "Sign In 1",
-              url: "/sign-in",
-            },
-            {
-              title: "Sign In 2",
-              url: "/sign-in-2",
-            },
-            {
-              title: "Sign Up",
-              url: "/sign-up",
-            },
-            {
-              title: "Forgot Password",
-              url: "/forgot-password",
-            },
-          ],
-        },
-        {
           title: "Errors",
           url: "#",
           icon: AlertTriangle,

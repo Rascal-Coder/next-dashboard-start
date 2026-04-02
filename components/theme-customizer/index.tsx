@@ -7,12 +7,13 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/animate-ui/components/radix/tabs'
 import { useThemeManager } from '@/hooks/use-theme-manager'
 import { useSidebarConfig } from '@/contexts/sidebar-context'
-import { tweakcnThemes } from '@/config/theme-data'
 import { ThemeTab } from './theme-tab'
 import { LayoutTab } from './layout-tab'
 import { ImportModal } from './import-modal'
 import { cn } from '@/lib/utils'
 import type { ImportedTheme } from '@/types/theme-customizer'
+import { useThemeCustomizerStore } from '@/stores/theme-customizer-store'
+import { useSidebarStore } from '@/stores/sidebar-store'
 
 interface ThemeCustomizerProps {
   open: boolean
@@ -20,24 +21,26 @@ interface ThemeCustomizerProps {
 }
 
 export function ThemeCustomizer({ open, onOpenChange }: ThemeCustomizerProps) {
-  const { applyImportedTheme, isDarkMode, resetTheme, applyRadius, setBrandColorsValues, applyTheme, applyTweakcnTheme } = useThemeManager()
-  const { config: sidebarConfig, updateConfig: updateSidebarConfig } = useSidebarConfig()
-
-  const [activeTab, setActiveTab] = React.useState("theme")
-  const [selectedTheme, setSelectedTheme] = React.useState("default")
-  const [selectedTweakcnTheme, setSelectedTweakcnTheme] = React.useState("")
-  const [selectedRadius, setSelectedRadius] = React.useState("0.5rem")
+  const { applyImportedTheme, isDarkMode, resetTheme, applyRadius, setBrandColorsValues } = useThemeManager()
+  const { config: sidebarConfig } = useSidebarConfig()
+  const resetSidebarConfig = useSidebarStore((state) => state.resetConfig)
+  const activeTab = useThemeCustomizerStore((state) => state.activeTab)
+  const setActiveTab = useThemeCustomizerStore((state) => state.setActiveTab)
+  const selectedTheme = useThemeCustomizerStore((state) => state.selectedTheme)
+  const setSelectedTheme = useThemeCustomizerStore((state) => state.setSelectedTheme)
+  const selectedTweakcnTheme = useThemeCustomizerStore((state) => state.selectedTweakcnTheme)
+  const setSelectedTweakcnTheme = useThemeCustomizerStore((state) => state.setSelectedTweakcnTheme)
+  const selectedRadius = useThemeCustomizerStore((state) => state.selectedRadius)
+  const setSelectedRadius = useThemeCustomizerStore((state) => state.setSelectedRadius)
+  const setImportedTheme = useThemeCustomizerStore((state) => state.setImportedTheme)
+  const resetThemeCustomizer = useThemeCustomizerStore((state) => state.reset)
   const [importModalOpen, setImportModalOpen] = React.useState(false)
-  const [importedTheme, setImportedTheme] = React.useState<ImportedTheme | null>(null)
 
   const handleReset = () => {
     // Complete reset to application defaults
 
     // 1. Reset all state variables to initial values
-    setSelectedTheme("default")
-    setSelectedTweakcnTheme("")
-    setSelectedRadius("0.5rem")
-    setImportedTheme(null) // Clear imported theme
+    resetThemeCustomizer()
     setBrandColorsValues({}) // Clear brand colors state
 
     // 2. Completely remove all custom CSS variables
@@ -47,7 +50,7 @@ export function ThemeCustomizer({ open, onOpenChange }: ThemeCustomizerProps) {
     applyRadius("0.5rem")
 
     // 4. Reset sidebar to defaults
-    updateSidebarConfig({ variant: "inset", collapsible: "offcanvas", side: "left" })
+    resetSidebarConfig()
   }
 
   const handleImport = (themeData: ImportedTheme) => {
@@ -63,20 +66,6 @@ export function ThemeCustomizer({ open, onOpenChange }: ThemeCustomizerProps) {
   const handleImportClick = () => {
     setImportModalOpen(true)
   }
-
-  // Re-apply themes when theme mode changes
-  React.useEffect(() => {
-    if (importedTheme) {
-      applyImportedTheme(importedTheme, isDarkMode)
-    } else if (selectedTheme) {
-      applyTheme(selectedTheme, isDarkMode)
-    } else if (selectedTweakcnTheme) {
-      const selectedPreset = tweakcnThemes.find(t => t.value === selectedTweakcnTheme)?.preset
-      if (selectedPreset) {
-        applyTweakcnTheme(selectedPreset, isDarkMode)
-      }
-    }
-  }, [isDarkMode, importedTheme, selectedTheme, selectedTweakcnTheme, applyImportedTheme, applyTheme, applyTweakcnTheme])
 
   return (
     <>
