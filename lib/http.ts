@@ -9,7 +9,7 @@ import axios, {
 } from "axios";
 
 import { parseBaseUrl } from "@/env/parse";
-import { AUTH_STORAGE_KEY, useAuthStore } from "@/stores/auth-store";
+import { getAccessTokenFromDocument } from "@/lib/auth-cookie";
 
 /** 后端统一业务响应（与 `app/api` 下 JSON 一致） */
 export type ApiEnvelope<T = unknown> = {
@@ -31,15 +31,13 @@ type HttpRequestConfig = AxiosRequestConfig & {
   raw?: boolean;
 };
 
-function getClientAccessToken(): string | null {
-  const live = useAuthStore.getState().accessToken;
-  if (live) return live;
-  return null;
+function getClientToken(): string | null {
+  return getAccessTokenFromDocument();
 }
 
 function notifyDestructive(description: string) {
   if (typeof window === "undefined") return;
-  void import("@/hooks/use-toast").then(({ toast }) => {
+  import("@/hooks/use-toast").then(({ toast }) => {
     toast({ variant: "destructive", description });
   });
 }
@@ -47,31 +45,17 @@ function notifyDestructive(description: string) {
 /**
  * 浏览器走 Next rewrites（相对路径）；服务端直连 `NEXT_PUBLIC_*` 中的完整 URL，避免 Node 下相对 baseURL 无效。
  */
-export function getApiBaseUrl(): string {
-  const isDev = process.env.NODE_ENV === "development";
-  const env = process.env as Record<string, string | undefined>;
-  const parsed = parseBaseUrl(env, isDev);
-
-  if (parsed.startsWith("http")) {
-    return parsed;
-  }
-
-  if (typeof window !== "undefined") {
-    return parsed;
-  }
-
-  const publicUrl = env.NEXT_PUBLIC_API_URL ?? "";
-  if (publicUrl.startsWith("http")) {
-    return publicUrl;
-  }
-
-  const port = env.PORT ?? "3000";
-  const path = parsed.startsWith("/") ? parsed : `/${parsed}`;
-  return `http://127.0.0.1:${port}${path}`;
-}
+export const baseURL = parseBaseUrl(
+  {
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+    NEXT_PUBLIC_DEV_API_PREFIX: process.env.NEXT_PUBLIC_DEV_API_PREFIX,
+    NEXT_PUBLIC_DEV_PROXY: process.env.NEXT_PUBLIC_DEV_PROXY,
+  },
+  process.env.NODE_ENV === "development",
+)
 
 const request = axios.create({
-  baseURL: getApiBaseUrl(),
+  baseURL,
   timeout: 30_000,
   headers: {
     "Content-Type": "application/json",
@@ -118,7 +102,7 @@ request.interceptors.request.use(
       return config;
     }
 
-    const token = typeof window !== "undefined" ? getClientAccessToken() : null;
+    const token = typeof window !== "undefined" ? getClientToken() : null;
     if (token) {
       headers.set("Authorization", `Bearer ${token}`);
     }
@@ -173,28 +157,43 @@ request.interceptors.response.use(
  * HTTP 错误或 `raw: true` 时返回值依拦截器而定。
  */
 export const httpRequest = {
-  get<T = unknown>(url: string, params?: object, config?: HttpRequestConfig): Promise<ApiResponse<T>> {
+  get<T = unknown>(
+    url: string,
+    params?: object,
+    config?: HttpRequestConfig,
+  ): Promise<ApiResponse<T>> {
     return request.get(appendQuery(url, params), {
       ...config,
       headers: config?.headers ?? new AxiosHeaders(),
     }) as Promise<ApiResponse<T>>;
   },
 
-  post<T = unknown>(url: string, data?: object, config?: HttpRequestConfig): Promise<ApiResponse<T>> {
+  post<T = unknown>(
+    url: string,
+    data?: object,
+    config?: HttpRequestConfig,
+  ): Promise<ApiResponse<T>> {
     return request.post(url, data, {
       ...config,
       headers: config?.headers ?? new AxiosHeaders(),
-    }) as Promise<ApiResponse<T>>;
+    }) as Promise<ApiResponse<T>>;    
   },
 
-  put<T = unknown>(url: string, data?: object, config?: HttpRequestConfig): Promise<ApiResponse<T>> {
+  put<T = unknown>(
+    url: string,
+    data?: object,
+    config?: HttpRequestConfig,
+  ): Promise<ApiResponse<T>> {
     return request.put(url, data, {
       ...config,
       headers: config?.headers ?? new AxiosHeaders(),
     }) as Promise<ApiResponse<T>>;
   },
 
-  delete<T = unknown>(url: string, config?: HttpRequestConfig): Promise<ApiResponse<T>> {
+  delete<T = unknown>(
+    url: string,
+    config?: HttpRequestConfig,
+  ): Promise<ApiResponse<T>> {
     return request.delete(url, {
       ...config,
       headers: config?.headers ?? new AxiosHeaders(),
@@ -202,5 +201,22 @@ export const httpRequest = {
   },
 };
 
-export const http = request;
+export type CaptchaResult = {
+  img: string;
+  id: string;
+};
+
+/** GET `captcha`：返回可写入 DOM 的图片 HTML 与校验用 id（字段名以后端 `data` 为准，可映射）。 */
+export async function getCaptcha(): Promise<CaptchaResult> {
+  const res = await httpRequest.get<CaptchaResult>("captcha", undefined, {
+    skipAuth: true,
+    skipErrorHandler: true,
+  });
+  if (!isSuccess(res.code) || res.data == null) {
+    throw new Error(res.msg || "获取验证码失败");
+  }
+  const { img, id } = res.data as CaptchaResult;
+  return { img, id };
+}
+
 export default request;

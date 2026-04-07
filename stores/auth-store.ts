@@ -3,30 +3,33 @@
 import { create } from "zustand"
 import { createJSONStorage, persist } from "zustand/middleware"
 
+import {
+  clearAuthTokenCookies,
+  getAccessTokenFromDocument,
+  getRefreshTokenFromDocument,
+  writeAuthTokenCookies,
+} from "@/lib/auth-cookie"
 import type { AuthUser } from "@/types/auth"
 
 export type { AuthUser }
 
-export const AUTH_STORAGE_KEY = "dashboard-auth"
+/** 仅缓存用户信息；token 只存在 Cookie（见 `lib/auth-cookie`） */
+export const AUTH_USER_STORAGE_KEY = "dashboard-auth-user"
 
 type AuthStore = {
-  accessToken: string | null
+  token: string | null
   refreshToken: string | null
-  expiresIn: number | null
   user: AuthUser | null
-  setTokens: (tokens: {
-    accessToken: string
-    refreshToken: string
-    expiresIn: number
-  }) => void
+  setTokens: (tokens: { token: string; refreshToken: string }) => void
   setUser: (user: AuthUser | null) => void
   clearSession: () => void
+  /** 从 Cookie 把 token 同步进内存（供依赖 store 的 UI；请求头请用 `getAccessTokenFromDocument`） */
+  hydrateFromCookies: () => void
 }
 
 const emptySession = {
-  accessToken: null,
+  token: null,
   refreshToken: null,
-  expiresIn: null,
   user: null,
 } as const
 
@@ -34,24 +37,29 @@ export const useAuthStore = create<AuthStore>()(
   persist(
     (set) => ({
       ...emptySession,
-      setTokens: (tokens) =>
+      setTokens: (tokens) => {
+        writeAuthTokenCookies(tokens)
         set({
-          accessToken: tokens.accessToken,
+          token: tokens.token,
           refreshToken: tokens.refreshToken,
-          expiresIn: tokens.expiresIn,
-        }),
+        })
+      },
       setUser: (user) => set({ user }),
-      clearSession: () => set({ ...emptySession }),
+      clearSession: () => {
+        set({ ...emptySession })
+        clearAuthTokenCookies()
+      },
+      hydrateFromCookies: () => {
+        set({
+          token: getAccessTokenFromDocument(),
+          refreshToken: getRefreshTokenFromDocument(),
+        })
+      },
     }),
     {
-      name: AUTH_STORAGE_KEY,
+      name: AUTH_USER_STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
-        expiresIn: state.expiresIn,
-        user: state.user,
-      }),
+      partialize: (state) => ({ user: state.user }),
     },
   ),
 )

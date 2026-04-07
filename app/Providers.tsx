@@ -3,12 +3,13 @@
 import { useEffect } from "react";
 import { ThemeProvider } from "@/components/theme-provider";
 import { tweakcnThemes } from "@/config/theme-data";
-import { SidebarConfigProvider } from "@/contexts/sidebar-context";
+import { SidebarConfigProvider } from "@/components/sidebar-config-provider";
 import { useThemeManager } from "@/hooks/use-theme-manager";
 import { useThemeCustomizerStore } from "@/stores/theme-customizer-store";
 import { QueryProvider } from "@/components/query-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { ProgressProvider } from "@bprogress/next/app";
+import { useAuthStore } from "@/stores/auth-store";
 
 type ProvidersProps = {
   children: React.ReactNode;
@@ -49,6 +50,16 @@ function GlobalThemeInitializer() {
   return null;
 }
 
+function AuthHydrateFromCookies() {
+  useEffect(() => {
+    const run = () => useAuthStore.getState().hydrateFromCookies();
+    run();
+    return useAuthStore.persist.onFinishHydration(run);
+  }, []);
+
+  return null;
+}
+
 /**
  * 全局客户端 Provider：用 BProgress 包裹应用，使 `@bprogress/next/app` 的 `useRouter` 与顶部进度条在任意路由（含 not-found）下可用。
  */
@@ -56,6 +67,7 @@ export function Providers({ children }: ProvidersProps) {
   return (
     <ThemeProvider defaultTheme="system" storageKey="nextjs-ui-theme">
       <GlobalThemeInitializer />
+      <AuthHydrateFromCookies />
       <ProgressProvider
         color="var(--primary)"
         options={{ showSpinner: true }}

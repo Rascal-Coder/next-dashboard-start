@@ -31,7 +31,7 @@ export default function SignInPage() {
           <Card className="w-full shadow-sm">
             <CardHeader className="space-y-2 px-8 pt-8">
               <CardTitle>Sign in</CardTitle>
-              <CardDescription>Use your email and password to access your account.</CardDescription>
+              <CardDescription>使用用户名、密码与验证码登录。</CardDescription>
             </CardHeader>
             <CardContent>
               <SignInForm />

@@ -1,14 +1,13 @@
-/**
- * 解析 axios `baseURL`：优先 `NEXT_PUBLIC_API_URL`（可为完整 URL），否则使用 `NEXT_PUBLIC_API_PREFIX`（默认 `/api`）。
- */
-export function parseBaseUrl(
-  env: Record<string, string | undefined>,
-  _isDev: boolean
-): string {
-  const explicit = env.NEXT_PUBLIC_API_URL?.trim();
-  if (explicit) {
-    return explicit;
+export function parseBaseUrl(env: Record<string, any>, isDev: boolean) {
+  const { NEXT_PUBLIC_API_URL, NEXT_PUBLIC_DEV_API_PREFIX, NEXT_PUBLIC_DEV_PROXY } = env
+  let baseURL = NEXT_PUBLIC_API_URL
+  //console.log("proxy", NEXT_PUBLIC_DEV_PROXY)
+  //如果是开发环境，并需要跨域代理
+  if (isDev && baseURL.startsWith("http") && NEXT_PUBLIC_DEV_PROXY === "true") {
+    const url = new URL(baseURL)
+    // //console.log("url", url)
+    baseURL = url.pathname === "/" ? NEXT_PUBLIC_DEV_API_PREFIX : url.pathname
   }
-  const prefix = env.NEXT_PUBLIC_API_PREFIX?.trim() || "/api";
-  return prefix.startsWith("/") ? prefix : `/${prefix}`;
+  //console.log({ isDev: !!(isDev), baseURL })
+  return baseURL
 }

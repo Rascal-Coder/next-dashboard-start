@@ -1,7 +1,4 @@
-"use client"
-
 import * as React from "react"
-import { useSidebarStore } from "@/stores/sidebar-store"
 
 export interface SidebarConfig {
   variant: "sidebar" | "floating" | "inset"
@@ -15,22 +12,3 @@ export interface SidebarContextValue {
 }
 
 export const SidebarContext = React.createContext<SidebarContextValue | null>(null)
-
-export function SidebarConfigProvider({ children }: { children: React.ReactNode }) {
-  const config = useSidebarStore((state) => state.config)
-  const updateConfig = useSidebarStore((state) => state.updateConfig)
-
-  return (
-    <SidebarContext.Provider value={{ config, updateConfig }}>
-      {children}
-    </SidebarContext.Provider>
-  )
-}
-
-export function useSidebarConfig() {
-  const context = React.useContext(SidebarContext)
-  if (!context) {
-    throw new Error("useSidebarConfig must be used within a SidebarConfigProvider")
-  }
-  return context
-}
