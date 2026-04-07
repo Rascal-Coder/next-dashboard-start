@@ -2,6 +2,7 @@
 
 import React from "react";
 import { AppSidebar } from "@/components/app-sidebar";
+import { DashboardProfileSync } from "@/components/dashboard-profile-sync";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { SidebarProvider, SidebarInset } from "@/components/animate-ui/components/radix/sidebar";
@@ -25,6 +26,7 @@ export default function DashboardLayout({
       } as React.CSSProperties}
       className={config.collapsible === "none" ? "sidebar-none-mode" : ""}
     >
+      <DashboardProfileSync />
       {config.side === "left" ? (
         <>
           <AppSidebar

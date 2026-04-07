@@ -4,23 +4,15 @@ import * as React from "react"
 import {
   LayoutPanelLeft,
   LayoutDashboard,
-  Mail,
-  CheckSquare,
-  MessageCircle,
-  Calendar,
-  Shield,
   AlertTriangle,
   Settings,
-  HelpCircle,
-  CreditCard,
-  LayoutTemplate,
-  Users,
 } from "lucide-react"
 import Link from "next/link"
 import { Logo } from "@/components/logo"
 
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
+import { useAuthStore } from "@/stores/auth-store"
 import {
   Sidebar,
   SidebarContent,
@@ -33,11 +25,6 @@ import {
 } from "@/components/animate-ui/components/radix/sidebar"
 
 const data = {
-  user: {
-    name: "Xpress",
-    email: "xpress@example.com",
-    avatar: "",
-  },
   navGroups: [
     {
       label: "Dashboards",
@@ -109,6 +96,8 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const user = useAuthStore((s) => s.user)
+
   return (
     <Sidebar {...props}>
       <SidebarHeader>
@@ -134,7 +123,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ))}
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={user} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

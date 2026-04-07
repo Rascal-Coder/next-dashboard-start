@@ -1,12 +1,9 @@
-import Link from "next/link";
-
-import { LiquidButton } from "@/components/animate-ui/components/buttons/liquid";
 import { InteractiveGridPattern } from "@/components/interactive-grid";
 import { Logo } from "@/components/logo";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+
+import { SignInForm } from "./sign-in-form";
 
 
 export default function SignInPage() {
@@ -37,26 +34,7 @@ export default function SignInPage() {
               <CardDescription>Use your email and password to access your account.</CardDescription>
             </CardHeader>
             <CardContent>
-              <form className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="you@example.com" autoComplete="email" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input id="password" type="password" placeholder="Enter your password" autoComplete="current-password" />
-                </div>
-                
-                <LiquidButton asChild className="w-full">
-                  <Link href="/dashboard">Continue</Link>
-                </LiquidButton>
-              </form>
-              <p className="mt-6 text-center text-sm text-muted-foreground">
-                Don&apos;t have an account?{" "}
-                <Link href="/sign-up" className="font-medium text-primary hover:underline">
-                  Sign up
-                </Link>
-              </p>
+              <SignInForm />
             </CardContent>
           </Card>
         </div>

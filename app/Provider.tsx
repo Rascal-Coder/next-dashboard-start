@@ -6,6 +6,8 @@ import { tweakcnThemes } from "@/config/theme-data";
 import { SidebarConfigProvider } from "@/contexts/sidebar-context";
 import { useThemeManager } from "@/hooks/use-theme-manager";
 import { useThemeCustomizerStore } from "@/stores/theme-customizer-store";
+import { QueryProvider } from "@/components/query-provider";
+import { Toaster } from "@/components/ui/toaster";
 import { ProgressProvider } from "@bprogress/next/app";
 
 type ProvidersProps = {
@@ -59,9 +61,12 @@ export function Providers({ children }: ProvidersProps) {
         options={{ showSpinner: true }}
         shallowRouting
       >
-        <SidebarConfigProvider>
-          {children}
-        </SidebarConfigProvider>
+        <QueryProvider>
+          <SidebarConfigProvider>
+            {children}
+            <Toaster />
+          </SidebarConfigProvider>
+        </QueryProvider>
       </ProgressProvider>
     </ThemeProvider>
   );
