@@ -156,29 +156,33 @@ export function SignInForm() {
                 <Field data-invalid={fieldState.invalid || undefined}>
                   <FieldLabel htmlFor="sign-in-code">验证码</FieldLabel>
                   <FieldContent className="gap-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div
-                        ref={refImg}
-                        className="flex min-h-10 min-w-[120px] items-center rounded-md border border-border bg-muted/30 px-2 py-1 [&_img]:max-h-10 [&_img]:w-auto"
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                      <Input
+                        id="sign-in-code"
+                        type="text"
+                        placeholder="请输入验证码"
+                        autoComplete="one-time-code"
+                        className="sm:max-w-[180px]"
+                        {...field}
                       />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon-sm"
-                        className="shrink-0"
-                        onClick={refreshCaptcha}
-                        aria-label="换一张验证码"
-                      >
-                        <RefreshCw />
-                      </Button>
+                      <div className="flex items-center gap-2 sm:flex-1">
+                        <div
+                          ref={refImg}
+                          className="flex h-12 flex-1 items-center justify-center rounded-md border border-border bg-muted/40 px-3 py-2 shadow-sm [&_img]:max-h-10 [&_img]:w-auto"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon-sm"
+                          className="shrink-0"
+                          onClick={refreshCaptcha}
+                          aria-label="换一张验证码"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                      </div>
+
                     </div>
-                    <Input
-                      id="sign-in-code"
-                      type="text"
-                      placeholder="请输入验证码"
-                      autoComplete="one-time-code"
-                      {...field}
-                    />
                     <FieldError errors={fieldState.error ? [fieldState.error] : undefined} />
                   </FieldContent>
                 </Field>

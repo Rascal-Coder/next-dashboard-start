@@ -27,7 +27,7 @@ import {
 } from "@/components/animate-ui/components/radix/sidebar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
-// import { httpRequest } from "@/lib/http"
+import { httpRequest } from "@/lib/http"
 import { useAuthStore } from "@/stores/auth-store"
 import type { AuthUser } from "@/types/auth"
 
@@ -81,9 +81,15 @@ export function NavUser({ user }: { user: AuthUser | null }) {
     )
   }
 
-  function handleLogout() {
-    clearSession()
-    router.push("/sign-in")
+  async function handleLogout() {
+    try {
+      await httpRequest.post("/logout")
+    } catch {
+      // ignore error, toast already handled in http interceptor
+    } finally {
+      clearSession()
+      router.push("/sign-in")
+    }
   }
 
   return (
@@ -142,7 +148,7 @@ export function NavUser({ user }: { user: AuthUser | null }) {
               className="cursor-pointer"
               onSelect={(e) => {
                 e.preventDefault()
-                void handleLogout()
+                handleLogout()
               }}
             >
               <LogOut />
