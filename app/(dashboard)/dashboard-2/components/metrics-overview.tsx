@@ -8,7 +8,7 @@ import {
   ShoppingCart, 
   BarChart3 
 } from "lucide-react"
-import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle, CardToolbar } from "@/components/ui/card"
 import { Badge } from "@/components/reui/badge"
 
 const metrics = [
@@ -67,12 +67,12 @@ export function MetricsOverview() {
               <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
                 {metric.value}
               </CardTitle>
-              <CardAction>
+              <CardToolbar>
                 <Badge variant="outline">
                   <TrendIcon className="h-4 w-4" />
                   {metric.change}
                 </Badge>
-              </CardAction>
+              </CardToolbar>
             </CardHeader>
             <CardFooter className="flex-col items-start gap-1.5 text-sm">
               <div className="line-clamp-1 flex gap-2 font-medium">
