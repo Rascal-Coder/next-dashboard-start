@@ -6,13 +6,14 @@ import {
   ExpandedState,
   getCoreRowModel,
   getExpandedRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   SortingState,
   useReactTable,
+  VisibilityState,
 } from "@tanstack/react-table"
-import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react"
+import { ChevronRight, Columns2, RefreshCw } from "lucide-react"
 
+import { Button } from "@/components/ui/button"
 import { Card, CardTable } from "@/components/ui/card"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -21,83 +22,67 @@ import {
   RippleButtonRipples,
 } from "@/components/animate-ui/components/buttons/ripple"
 import { DataGrid } from "@/components/reui/data-grid/data-grid"
+import { DataGridColumnVisibility } from "@/components/reui/data-grid/data-grid-column-visibility"
 import { DataGridTable } from "@/components/reui/data-grid/data-grid-table"
 import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-column-header"
 import { Badge } from "@/components/reui/badge"
 import { PageContainer } from "@/components/reui/page-container"
+import { httpRequest, isSuccess } from "@/lib/http"
+import { type MenuItem, type MenuType, MenuFormDialog } from "./menu-form-dialog"
 
-type MenuType = "page" | "iframe" | "link" | "button"
-
-type MenuItem = {
-  id: string
-  name: string
-  type: MenuType
-  path?: string
-  permission?: string
-  children?: MenuItem[]
+type MenuTreeResponse = {
+  list: MenuItem[]
+  total: number
 }
 
 /** 菜单类型对应的 badge 样式与中文标签 */
 const menuTypeConfig: Record<MenuType, { label: string; variant: "primary-light" | "destructive-light" | "warning-light" | "success-light" }> = {
-  page:    { label: "页面",  variant: "primary-light" },
-  iframe:  { label: "iframe", variant: "destructive-light" },
-  link:    { label: "链接",  variant: "warning-light" },
-  button:  { label: "按钮",  variant: "success-light" },
+  page:   { label: "页面",   variant: "primary-light" },
+  iframe: { label: "iframe", variant: "destructive-light" },
+  link:   { label: "链接",   variant: "warning-light" },
+  btn:    { label: "按钮",   variant: "success-light" },
 }
-
-const mockData: MenuItem[] = [
-  {
-    id: "1",
-    name: "home",
-    type: "page",
-    path: "/home",
-  },
-  {
-    id: "2",
-    name: "link",
-    type: "page",
-    path: "/link",
-    children: [
-      { id: "2-1", name: "iframe",   type: "iframe", path: "/link/iframe" },
-      { id: "2-2", name: "external", type: "link",   path: "/link/external" },
-    ],
-  },
-  {
-    id: "3",
-    name: "system",
-    type: "page",
-    path: "/system",
-    children: [
-      {
-        id: "3-1",
-        name: "user",
-        type: "page",
-        path: "/system/user",
-        children: [
-          { id: "3-1-1", name: "Add",  type: "button", permission: "user.add" },
-          { id: "3-1-2", name: "Edit", type: "button", permission: "user.edit" },
-          { id: "3-1-3", name: "Del",  type: "button", permission: "user.del" },
-        ],
-      },
-    ],
-  },
-]
 
 export default function SettingsUserManagementPage() {
   const [data, setData] = useState<MenuItem[]>([])
   const [sorting, setSorting] = useState<SortingState>([])
-  const [expanded, setExpanded] = useState<ExpandedState>(true)
+  const [expanded, setExpanded] = useState<ExpandedState>({})
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [isLoading, setIsLoading] = useState(false)
+
+  /** 新增/编辑弹窗状态 */
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editItem, setEditItem] = useState<MenuItem | null>(null)
+
+  const openCreate = useCallback(() => {
+    setEditItem(null)
+    setDialogOpen(true)
+  }, [])
+
+  const openEdit = useCallback((item: MenuItem) => {
+    setEditItem(item)
+    setDialogOpen(true)
+  }, [])
 
   /** 加载数据，首次挂载和手动刷新均复用 */
   const loadData = useCallback(() => {
     setIsLoading(true)
     setData([])
-    const timer = setTimeout(() => {
-      setData(mockData)
-      setIsLoading(false)
-    }, 1000)
-    return () => clearTimeout(timer)
+    let cancelled = false
+    httpRequest
+      .get<MenuTreeResponse>("/menu/tree", { hasBtn: true })
+      .then((res) => {
+        if (cancelled) return
+        if (isSuccess(res.code) && res.data) {
+          setData(res.data.list)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {
@@ -129,34 +114,34 @@ export default function SettingsUserManagementPage() {
                 }}
                 className="text-muted-foreground hover:text-foreground flex size-5 shrink-0 items-center justify-center rounded transition-colors"
               >
-                {row.getIsExpanded() ? (
-                  <ChevronDown className="size-4" />
-                ) : (
-                  <ChevronRight className="size-4" />
-                )}
+                <ChevronRight
+                  className={`size-4 transition-transform duration-200 ${row.getIsExpanded() ? "rotate-90" : ""}`}
+                />
               </button>
             ) : (
               <span className="size-5 shrink-0" />
             )}
-            <span className="font-medium">{row.original.name}</span>
+            <span className="font-medium">{row.original.meta.title}</span>
           </div>
         ),
         meta: {
+          headerTitle: "菜单名称",
           skeleton: <Skeleton className="h-4 w-24" />,
         },
       },
       {
-        accessorKey: "type",
+        accessorKey: "menuType",
         header: ({ column }) => (
           <DataGridColumnHeader column={column} title="菜单类型" />
         ),
         cell: ({ row }) => {
-          const config = menuTypeConfig[row.original.type]
+          const config = menuTypeConfig[row.original.menuType]
           return (
             <Badge variant={config.variant}>{config.label}</Badge>
           )
         },
         meta: {
+          headerTitle: "菜单类型",
           skeleton: <Skeleton className="h-5 w-12 rounded-sm" />,
         },
       },
@@ -167,10 +152,11 @@ export default function SettingsUserManagementPage() {
         ),
         cell: ({ row }) => (
           <span className="text-muted-foreground">
-            {row.original.path ?? ""}
+            {row.original.path ?? "--"}
           </span>
         ),
         meta: {
+          headerTitle: "路由路径",
           skeleton: <Skeleton className="h-4 w-36" />,
         },
       },
@@ -181,10 +167,11 @@ export default function SettingsUserManagementPage() {
         ),
         cell: ({ row }) => (
           <span className="text-muted-foreground">
-            {row.original.permission ?? ""}
+            {row.original.auth ?? "--"}
           </span>
         ),
         meta: {
+          headerTitle: "权限标识",
           skeleton: <Skeleton className="h-4 w-20" />,
         },
       },
@@ -194,6 +181,7 @@ export default function SettingsUserManagementPage() {
           <DataGridColumnHeader column={column} title="操作" />
         ),
         enableSorting: false,
+        enableHiding: false,
         cell: ({ row }) => {
           const item = row.original
           return (
@@ -221,8 +209,7 @@ export default function SettingsUserManagementPage() {
                 className="text-primary hover:text-primary"
                 onClick={(e) => {
                   e.stopPropagation()
-                  // TODO: 接入编辑弹窗逻辑
-                  console.log("edit menu", item)
+                  openEdit(item)
                 }}
               >
                 编辑
@@ -247,6 +234,7 @@ export default function SettingsUserManagementPage() {
           )
         },
         meta: {
+          headerTitle: "操作",
           skeleton: (
             <div className="flex items-center gap-1">
               <Skeleton className="h-6 w-10" />
@@ -257,28 +245,24 @@ export default function SettingsUserManagementPage() {
         },
       },
     ],
-    []
+    [openEdit]
   )
 
   const table = useReactTable({
     data,
     columns,
-    initialState: {
-      pagination: { pageIndex: 0, pageSize: 10 },
-    },
     state: {
       sorting,
       expanded,
+      columnVisibility,
     },
     onSortingChange: setSorting,
     onExpandedChange: setExpanded,
+    onColumnVisibilityChange: setColumnVisibility,
     getSubRows: (row) => row.children,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    manualPagination: false,
-    pageCount: undefined,
   })
 
   return (
@@ -301,10 +285,7 @@ export default function SettingsUserManagementPage() {
           <RippleButton
             variant="default"
             size="sm"
-            onClick={() => {
-              // TODO: 接入新增菜单弹窗逻辑
-              console.log("create menu")
-            }}
+            onClick={openCreate}
           >
             新增菜单
             <RippleButtonRipples />
@@ -314,6 +295,19 @@ export default function SettingsUserManagementPage() {
     >
       <Card className="p-0">
         <CardTable>
+          {/* 工具栏：右侧显示列 */}
+          <div className="flex items-center justify-end px-4 py-3 border-b">
+            <DataGridColumnVisibility
+              table={table}
+              label="显示列"
+              trigger={
+                <Button variant="outline" size="sm" type="button">
+                  <Columns2 className="size-3.5" />
+                  显示列
+                </Button>
+              }
+            />
+          </div>
           <DataGrid
             table={table}
             recordCount={data.length}
@@ -345,6 +339,13 @@ export default function SettingsUserManagementPage() {
           </DataGrid>
         </CardTable>
       </Card>
+      <MenuFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        editItem={editItem}
+        menuList={data}
+        onSuccess={handleRefresh}
+      />
     </PageContainer>
   )
 }

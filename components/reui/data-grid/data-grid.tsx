@@ -94,6 +94,8 @@ export interface DataGridProps<TData extends object> {
     columnsDraggable?: boolean
     rowsDraggable?: boolean
     rowsPinnable?: boolean
+    /** 树形表格展开子行时的淡入动画，仅对 depth > 0 的子行生效 */
+    treeRowAnimation?: boolean
   }
   tableClassNames?: {
     base?: string
@@ -205,6 +207,7 @@ function DataGrid<TData extends object>({
       columnsDraggable: false,
       rowsDraggable: false,
       rowsPinnable: false,
+      treeRowAnimation: true,
     },
     tableClassNames: {
       base: "",

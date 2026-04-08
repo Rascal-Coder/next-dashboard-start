@@ -967,6 +967,9 @@ function DataGridTableBodyRow<TData>({
         pinnedBoundary === "top" && "[&>td]:shadow-[0_2px_0_rgba(0,0,0,0.03)]",
         pinnedBoundary === "bottom" &&
           "[&>td]:shadow-[0_2px_0_rgba(0,0,0,0.03)]",
+        props.tableLayout?.treeRowAnimation &&
+          row.depth > 0 &&
+          "animate-in fade-in slide-in-from-top-1 duration-200",
         props.tableClassNames?.bodyRow
       )}
     >

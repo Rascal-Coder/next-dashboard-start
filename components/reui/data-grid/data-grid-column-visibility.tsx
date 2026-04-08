@@ -1,6 +1,6 @@
 "use client"
 
-import { ReactElement } from "react"
+import { ReactElement, ReactNode } from "react"
 import { getColumnHeaderLabel } from "@/components/reui/data-grid/data-grid"
 import { Table } from "@tanstack/react-table"
 
@@ -16,9 +16,12 @@ import {
 function DataGridColumnVisibility<TData>({
   table,
   trigger,
+  label = "Toggle Columns",
 }: {
   table: Table<TData>
   trigger: ReactElement<Record<string, unknown>>
+  /** 下拉标题，用于与页面语言一致 */
+  label?: ReactNode
 }) {
   return (
     <DropdownMenu>
@@ -26,7 +29,7 @@ function DataGridColumnVisibility<TData>({
       <DropdownMenuContent align="end" className="min-w-[150px]">
         <DropdownMenuGroup>
           <DropdownMenuLabel className="font-medium">
-            Toggle Columns
+            {label}
           </DropdownMenuLabel>
           {table
             .getAllColumns()
