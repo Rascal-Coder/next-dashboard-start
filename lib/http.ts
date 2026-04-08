@@ -28,12 +28,12 @@ export function isSuccess(code: number): boolean {
 type HttpRequestConfig = AxiosRequestConfig & {
   skipAuth?: boolean;
   skipErrorHandler?: boolean;
+  /** 不按 `{ code, msg }` 处理，直接返回 `response.data`；仍会附加 token（请用 `skipAuth` 跳过） */
   raw?: boolean;
+  /** 返回完整 `AxiosResponse`（如 `responseType: 'blob'` 时读 `Content-Disposition`） */
+  fullResponse?: boolean;
 };
 
-function getClientToken(): string | null {
-  return getAccessTokenFromDocument();
-}
 
 function notifyDestructive(description: string) {
   if (typeof window === "undefined") return;
@@ -62,6 +62,11 @@ const request = axios.create({
   },
 });
 
+/**
+ * 判断响应体是否为后端约定的“业务信封”结构。
+ *
+ * 仅检查最关键的 `code: number` 字段，用于在拦截器里决定是否按 `{ code, msg, data }` 处理。
+ */
 function isApiEnvelope(x: unknown): x is ApiEnvelope {
   return (
     typeof x === "object" &&
@@ -71,6 +76,12 @@ function isApiEnvelope(x: unknown): x is ApiEnvelope {
   );
 }
 
+/**
+ * 从非标准错误响应中尝试提取可展示的错误信息。
+ *
+ * 场景：当后端没有返回统一的 `{ code, msg }` 结构时（例如网关/反向代理/框架默认错误页），
+ * 仍尽量从 `data.msg` 里拿到字符串消息以改善提示。
+ */
 function pickErrorMessage(data: unknown): string | undefined {
   if (!data || typeof data !== "object") return undefined;
   if (!("msg" in data)) return undefined;
@@ -78,20 +89,9 @@ function pickErrorMessage(data: unknown): string | undefined {
   return typeof msg === "string" ? msg : undefined;
 }
 
-function appendQuery(url: string, params?: object) {
-  if (!params || Object.keys(params).length === 0) return url;
-  const u = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) {
-    if (v === undefined || v === null) continue;
-    u.set(k, String(v));
-  }
-  const q = u.toString();
-  return q ? `${url}?${q}` : url;
-}
-
 request.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    if (config.raw || config.skipAuth) {
+    if (config.skipAuth) {
       return config;
     }
 
@@ -102,9 +102,10 @@ request.interceptors.request.use(
       return config;
     }
 
-    const token = typeof window !== "undefined" ? getClientToken() : null;
+    const token = typeof window !== "undefined" ? getAccessTokenFromDocument() : null;
     if (token) {
-      headers.set("Authorization", `Bearer ${token}`);
+      // Bearer
+      headers.set("Authorization", `${token}`);
     }
     config.headers = headers;
     return config;
@@ -117,6 +118,9 @@ request.interceptors.request.use(
 
 request.interceptors.response.use(
   (response: AxiosResponse) => {
+    if (response.config.fullResponse) {
+      return response;
+    }
     if (response.config.raw) {
       return response.data;
     }
@@ -154,7 +158,7 @@ request.interceptors.response.use(
 
 /**
  * 与参考工程类似的便捷方法；成功时返回完整信封 `{ code, msg, data }`。
- * HTTP 错误或 `raw: true` 时返回值依拦截器而定。
+ * `raw: true` 时返回原始 `data`；`fullResponse: true` 时返回整份 `AxiosResponse`（建议下载等场景直接用 `default request` 并传该选项）。
  */
 export const httpRequest = {
   get<T = unknown>(
@@ -162,8 +166,9 @@ export const httpRequest = {
     params?: object,
     config?: HttpRequestConfig,
   ): Promise<ApiResponse<T>> {
-    return request.get(appendQuery(url, params), {
+    return request.get(url, {
       ...config,
+      params,
       headers: config?.headers ?? new AxiosHeaders(),
     }) as Promise<ApiResponse<T>>;
   },
@@ -200,23 +205,5 @@ export const httpRequest = {
     }) as Promise<ApiResponse<T>>;
   },
 };
-
-export type CaptchaResult = {
-  img: string;
-  id: string;
-};
-
-/** GET `captcha`：返回可写入 DOM 的图片 HTML 与校验用 id（字段名以后端 `data` 为准，可映射）。 */
-export async function getCaptcha(): Promise<CaptchaResult> {
-  const res = await httpRequest.get<CaptchaResult>("captcha", undefined, {
-    skipAuth: true,
-    skipErrorHandler: true,
-  });
-  if (!isSuccess(res.code) || res.data == null) {
-    throw new Error(res.msg || "获取验证码失败");
-  }
-  const { img, id } = res.data as CaptchaResult;
-  return { img, id };
-}
 
 export default request;

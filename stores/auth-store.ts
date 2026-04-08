@@ -13,7 +13,7 @@ import type { AuthUser } from "@/types/auth"
 
 export type { AuthUser }
 
-/** 仅缓存用户信息；token 只存在 Cookie（见 `lib/auth-cookie`） */
+
 export const AUTH_USER_STORAGE_KEY = "dashboard-auth-user"
 
 type AuthStore = {

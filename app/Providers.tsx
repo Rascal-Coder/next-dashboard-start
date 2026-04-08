@@ -50,6 +50,7 @@ function GlobalThemeInitializer() {
   return null;
 }
 
+/** 从 Cookie 把 token和 refreshToken 同步进内存 方便后续请求使用 */
 function AuthHydrateFromCookies() {
   useEffect(() => {
     const run = () => useAuthStore.getState().hydrateFromCookies();

@@ -6,6 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { SidebarProvider, SidebarInset } from "@/components/animate-ui/components/radix/sidebar";
 import { ThemeCustomizer, ThemeCustomizerTrigger } from "@/components/theme-customizer";
+import { AuthProfileBootstrap } from "@/components/bootstrap";
 import { useSidebarConfig } from "@/hooks/use-sidebar-config";
 
 export default function DashboardLayout({
@@ -25,6 +26,7 @@ export default function DashboardLayout({
       } as React.CSSProperties}
       className={config.collapsible === "none" ? "sidebar-none-mode" : ""}
     >
+      <AuthProfileBootstrap />
       {config.side === "left" ? (
         <>
           <AppSidebar

@@ -27,7 +27,7 @@ import {
 } from "@/components/animate-ui/components/radix/sidebar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
-import { httpRequest } from "@/lib/http"
+// import { httpRequest } from "@/lib/http"
 import { useAuthStore } from "@/stores/auth-store"
 import type { AuthUser } from "@/types/auth"
 
@@ -75,7 +75,6 @@ export function NavUser({ user }: { user: AuthUser | null }) {
               <Skeleton className="h-4 w-31 max-w-full rounded-md bg-sidebar-foreground/16" />
               <Skeleton className="h-3 w-40 max-w-full rounded-md bg-sidebar-foreground/12" />
             </div>
-            <Skeleton className="ml-auto size-4 shrink-0 rounded-sm bg-sidebar-foreground/14" />
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>

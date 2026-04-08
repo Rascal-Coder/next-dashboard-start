@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -22,7 +22,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { getCaptcha, httpRequest, isSuccess } from "@/lib/http";
+import { fetchAuthProfile } from "@/services/auth-profile";
+import { login } from "@/services/auth-login";
+import { getCaptcha } from "@/services/captcha";
 import { useAuthStore } from "@/stores/auth-store";
 
 const signInSchema = z.object({
@@ -33,35 +35,9 @@ const signInSchema = z.object({
 
 type SignInValues = z.infer<typeof signInSchema>;
 
-type LoginData = {
-  token: string;
-  refreshToken: string;
-};
-
-type LoginPayload = SignInValues & { codeId: string };
-
-async function postLogin(values: LoginPayload) {
-  const res = await httpRequest.post<LoginData>(
-    "/login",
-    {
-      username: values.username,
-      password: values.password,
-      code: values.code,
-      codeId: values.codeId,
-    },
-    {
-      skipAuth: true,
-      skipErrorHandler: true,
-    },
-  );
-  if (!isSuccess(res.code) || !res.data) {
-    throw new Error(res.msg || "登录失败，请重试");
-  }
-  return res.data;
-}
-
 export function SignInForm() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const setTokens = useAuthStore((s) => s.setTokens);
   const setUser = useAuthStore((s) => s.setUser);
   const clearSession = useAuthStore((s) => s.clearSession);
@@ -97,10 +73,17 @@ export function SignInForm() {
   });
 
   const loginMutation = useMutation({
-    mutationFn: postLogin,
-    onSuccess: (tokens) => {
+    mutationFn: login,
+    onSuccess: async (tokens) => {
       setUser(null);
       setTokens(tokens);
+      try {
+        const profile = await fetchAuthProfile();
+        setUser(profile);
+        queryClient.setQueryData(["auth", "profile", tokens.token], profile);
+      } catch {
+        // 仪表盘内 AuthProfileBootstrap 会重试；此处不阻塞进入系统
+      }
       router.push("/dashboard");
     },
     onError: (error) => {
@@ -120,7 +103,7 @@ export function SignInForm() {
       toast({ variant: "destructive", description: "请等待验证码加载完成" });
       return;
     }
-    loginMutation.mutate({ ...values, codeId});
+    loginMutation.mutate({ ...values, codeId });
   }
 
   return (
