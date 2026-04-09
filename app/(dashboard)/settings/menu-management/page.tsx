@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   ColumnDef,
   ExpandedState,
@@ -11,7 +12,7 @@ import {
   useReactTable,
   VisibilityState,
 } from "@tanstack/react-table"
-import { ChevronRight, Columns2, RefreshCw } from "lucide-react"
+import { ChevronRight, Columns2, Plus, RefreshCw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardTable } from "@/components/ui/card"
@@ -21,38 +22,68 @@ import {
   RippleButton,
   RippleButtonRipples,
 } from "@/components/animate-ui/components/buttons/ripple"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/animate-ui/components/radix/alert-dialog"
 import { DataGrid } from "@/components/reui/data-grid/data-grid"
 import { DataGridColumnVisibility } from "@/components/reui/data-grid/data-grid-column-visibility"
 import { DataGridTable } from "@/components/reui/data-grid/data-grid-table"
 import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-column-header"
 import { Badge } from "@/components/reui/badge"
 import { PageContainer } from "@/components/reui/page-container"
-import { httpRequest, isSuccess } from "@/lib/http"
-import { type MenuItem, type MenuType, MenuFormDialog } from "./menu-form-dialog"
-
-type MenuTreeResponse = {
-  list: MenuItem[]
-  total: number
-}
+import { type MenuItem, type MenuType, MENU_QUERY_KEY, fetchMenuTree, deleteMenu } from "@/services/menu"
+import { MenuFormDialog } from "./menu-form-dialog"
 
 /** 菜单类型对应的 badge 样式与中文标签 */
 const menuTypeConfig: Record<MenuType, { label: string; variant: "primary-light" | "destructive-light" | "warning-light" | "success-light" }> = {
-  page:   { label: "页面",   variant: "primary-light" },
+  page: { label: "页面", variant: "primary-light" },
   iframe: { label: "iframe", variant: "destructive-light" },
-  link:   { label: "链接",   variant: "warning-light" },
-  btn:    { label: "按钮",   variant: "success-light" },
+  link: { label: "链接", variant: "warning-light" },
+  btn: { label: "按钮", variant: "success-light" },
 }
 
-export default function SettingsUserManagementPage() {
-  const [data, setData] = useState<MenuItem[]>([])
+export default function SettingsMenuManagementPage() {
+  "use no memo"
   const [sorting, setSorting] = useState<SortingState>([])
   const [expanded, setExpanded] = useState<ExpandedState>({})
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
-  const [isLoading, setIsLoading] = useState(false)
 
   /** 新增/编辑弹窗状态 */
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editItem, setEditItem] = useState<MenuItem | null>(null)
+  /** 只读详情弹窗状态 */
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [detailItem, setDetailItem] = useState<MenuItem | null>(null)
+  /** 删除确认弹窗状态 */
+  const [deleteTarget, setDeleteTarget] = useState<MenuItem | null>(null)
+
+  const queryClient = useQueryClient()
+
+  /** 使用 TanStack Query 管理菜单树数据 */
+  const {
+    data = [],
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: MENU_QUERY_KEY,
+    queryFn: fetchMenuTree,
+  })
+
+  /** 删除菜单 mutation */
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteMenu(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: MENU_QUERY_KEY })
+      setDeleteTarget(null)
+    },
+  })
 
   const openCreate = useCallback(() => {
     setEditItem(null)
@@ -64,34 +95,10 @@ export default function SettingsUserManagementPage() {
     setDialogOpen(true)
   }, [])
 
-  /** 加载数据，首次挂载和手动刷新均复用 */
-  const loadData = useCallback(() => {
-    setIsLoading(true)
-    setData([])
-    let cancelled = false
-    httpRequest
-      .get<MenuTreeResponse>("/menu/tree", { hasBtn: true })
-      .then((res) => {
-        if (cancelled) return
-        if (isSuccess(res.code) && res.data) {
-          setData(res.data.list)
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
+  const openDetail = useCallback((item: MenuItem) => {
+    setDetailItem(item)
+    setDetailOpen(true)
   }, [])
-
-  useEffect(() => {
-    return loadData()
-  }, [loadData])
-
-  const handleRefresh = useCallback(() => {
-    loadData()
-  }, [loadData])
 
   const columns = useMemo<ColumnDef<MenuItem>[]>(
     () => [
@@ -194,8 +201,7 @@ export default function SettingsUserManagementPage() {
                 className="text-destructive hover:text-destructive"
                 onClick={(e) => {
                   e.stopPropagation()
-                  // TODO: 接入删除确认逻辑
-                  console.log("delete menu", item)
+                  setDeleteTarget(item)
                 }}
               >
                 删除
@@ -223,8 +229,7 @@ export default function SettingsUserManagementPage() {
                 className="text-primary hover:text-primary"
                 onClick={(e) => {
                   e.stopPropagation()
-                  // TODO: 接入详情弹窗逻辑
-                  console.log("detail menu", item)
+                  openDetail(item)
                 }}
               >
                 详情
@@ -245,9 +250,10 @@ export default function SettingsUserManagementPage() {
         },
       },
     ],
-    [openEdit]
+    [openEdit, openDetail, setDeleteTarget]
   )
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,
@@ -272,22 +278,12 @@ export default function SettingsUserManagementPage() {
       action={
         <div className="flex items-center gap-2">
           <RippleButton
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-          >
-            <RefreshCw
-              className={`size-3.5${isLoading ? " animate-spin" : ""}`}
-            />
-            刷新
-            <RippleButtonRipples />
-          </RippleButton>
-          <RippleButton
             variant="default"
             size="sm"
             onClick={openCreate}
           >
             新增菜单
+            <Plus className="size-4" />
             <RippleButtonRipples />
           </RippleButton>
         </div>
@@ -295,15 +291,26 @@ export default function SettingsUserManagementPage() {
     >
       <Card className="p-0">
         <CardTable>
-          {/* 工具栏：右侧显示列 */}
+          {/* 工具栏：刷新 + 列显隐 */}
           <div className="flex items-center justify-end px-4 py-3 border-b">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              className="mr-2"
+            >
+              <RefreshCw
+                className={`size-3.5${isFetching ? " animate-spin" : ""}`}
+              />
+              refresh
+            </Button>
             <DataGridColumnVisibility
               table={table}
-              label="显示列"
+              label="Toggle columns"
               trigger={
                 <Button variant="outline" size="sm" type="button">
                   <Columns2 className="size-3.5" />
-                  显示列
+                  view
                 </Button>
               }
             />
@@ -311,7 +318,7 @@ export default function SettingsUserManagementPage() {
           <DataGrid
             table={table}
             recordCount={data.length}
-            isLoading={isLoading}
+            isLoading={isFetching}
             loadingMode="skeleton"
             tableLayout={{
               cellBorder: true,
@@ -344,8 +351,47 @@ export default function SettingsUserManagementPage() {
         onOpenChange={setDialogOpen}
         editItem={editItem}
         menuList={data}
-        onSuccess={handleRefresh}
       />
+
+      {/* 详情弹窗（只读模式） */}
+      <MenuFormDialog
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        editItem={detailItem}
+        menuList={data}
+        readOnly
+      />
+
+      {/* 删除确认弹窗 */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除菜单「{deleteTarget?.meta.title}」吗？此操作不可撤销，其子菜单也将一并删除。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (deleteTarget) {
+                  deleteMutation.mutate(deleteTarget.id)
+                }
+              }}
+            >
+              {deleteMutation.isPending ? "删除中..." : "确认删除"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageContainer>
   )
 }

@@ -1,102 +1,38 @@
 "use client"
 
-import * as React from "react"
-import {
-  LayoutPanelLeft,
-  LayoutDashboard,
-  AlertTriangle,
-  Settings,
-} from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
+import { AlertCircle, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { Logo } from "@/components/logo"
 
-import { NavMain } from "@/components/nav-main"
+import { NavMenuTree } from "@/components/nav-menu-tree"
 import { NavUser } from "@/components/nav-user"
+import { AUTH_ROUTE_QUERY_KEY, fetchAuthRoute } from "@/services/auth-route"
 import { useAuthStore } from "@/stores/auth-store"
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSkeleton,
   SidebarRail,
 } from "@/components/animate-ui/components/radix/sidebar"
 
-const data = {
-  navGroups: [
-    {
-      label: "Dashboards",
-      items: [
-        {
-          title: "Dashboard 1",
-          url: "/dashboard",
-          icon: LayoutDashboard,
-        },
-        {
-          title: "Dashboard 2",
-          url: "/dashboard-2",
-          icon: LayoutPanelLeft,
-        },
-      ],
-    },
-    {
-      label: "Pages",
-      items: [
-        {
-          title: "Errors",
-          url: "#",
-          icon: AlertTriangle,
-          items: [
-            {
-              title: "Unauthorized",
-              url: "/errors/unauthorized",
-            },
-            {
-              title: "Forbidden",
-              url: "/errors/forbidden",
-            },
-            {
-              title: "Not Found",
-              url: "/errors/not-found",
-            },
-            {
-              title: "Internal Server Error",
-              url: "/errors/internal-server-error",
-            },
-            {
-              title: "Under Maintenance",
-              url: "/errors/under-maintenance",
-            },
-          ],
-        },
-        {
-          title: "Settings",
-          url: "#",
-          icon: Settings,
-          items: [
-            {
-              title: "Roles & Permissions",
-              url: "/settings/roles-permissions",
-            },
-            {
-              title: "Menu Management",
-              url: "/settings/menu-management",
-            },
-            {
-              title: "User Management",
-              url: "/settings/user-management",
-            },
-          ],
-        },
-      ],
-    },
-  ],
-}
-
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const user = useAuthStore((s) => s.user)
+  const token = useAuthStore((s) => s.token)
+
+  const { data: routeMenu = [], isPending, isError, refetch, isFetching } = useQuery({
+    queryKey: [...AUTH_ROUTE_QUERY_KEY, token],
+    queryFn: fetchAuthRoute,
+    enabled: Boolean(token),
+    staleTime: 5 * 60 * 1000,
+  })
 
   return (
     <Sidebar {...props}>
@@ -118,9 +54,43 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        {data.navGroups.map((group) => (
-          <NavMain key={group.label} label={group.label} items={group.items} />
-        ))}
+        {isPending && (
+          <SidebarGroup>
+            <SidebarGroupLabel>导航菜单</SidebarGroupLabel>
+            <SidebarMenu>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <SidebarMenuItem key={i}>
+                  <SidebarMenuSkeleton showIcon />
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
+        {Boolean(token) && !isPending && isError && (
+          <SidebarGroup>
+            <SidebarGroupLabel>导航菜单</SidebarGroupLabel>
+            <div className="mx-2 mt-1 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-destructive" />
+                <p className="text-xs leading-relaxed text-destructive/80">
+                  菜单加载失败，请检查网络或重新登录。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => refetch()}
+                disabled={isFetching}
+                className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-destructive/20 bg-background px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <RefreshCw className={`size-3 ${isFetching ? "animate-spin" : ""}`} />
+                {isFetching ? "重新加载中…" : "重试"}
+              </button>
+            </div>
+          </SidebarGroup>
+        )}
+        {Boolean(token) && !isPending && !isError && (
+          <NavMenuTree items={routeMenu} />
+        )}
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />

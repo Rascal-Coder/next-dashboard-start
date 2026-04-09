@@ -7,6 +7,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { SidebarProvider, SidebarInset } from "@/components/animate-ui/components/radix/sidebar";
 import { ThemeCustomizer, ThemeCustomizerTrigger } from "@/components/theme-customizer";
 import { AuthProfileBootstrap } from "@/components/bootstrap";
+import { AuthRouteGuard } from "@/components/auth-route-guard";
 import { useSidebarConfig } from "@/hooks/use-sidebar-config";
 
 export default function DashboardLayout({
@@ -39,7 +40,7 @@ export default function DashboardLayout({
             <div className="flex flex-1 flex-col">
               <div className="@container/main flex flex-1 flex-col gap-2">
                 <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-                  {children}
+                  <AuthRouteGuard>{children}</AuthRouteGuard>
                 </div>
               </div>
             </div>
@@ -53,7 +54,7 @@ export default function DashboardLayout({
             <div className="flex flex-1 flex-col">
               <div className="@container/main flex flex-1 flex-col gap-2">
                 <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-                  {children}
+                  <AuthRouteGuard>{children}</AuthRouteGuard>
                 </div>
               </div>
             </div>

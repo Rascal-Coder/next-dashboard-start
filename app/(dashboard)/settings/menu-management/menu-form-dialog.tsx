@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useMemo } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { Switch } from "radix-ui"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 
 import {
   Dialog,
@@ -33,35 +34,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { httpRequest, isSuccess } from "@/lib/http"
+import {
+  type MenuItem,
+  type MenuType,
+  type MenuMutationPayload,
+  MENU_QUERY_KEY,
+  createMenu,
+  updateMenu,
+} from "@/services/menu"
 
-/** 与后端 api/menu 接口返回结构对齐（含扩展字段 isHide） */
-export type MenuType = "page" | "iframe" | "link" | "btn"
-
-export type MenuItem = {
-  id: number
-  parentId: number | null
-  name: string | null
-  desc: string | null
-  sort: number | null
-  menuType: MenuType
-  path: string | null
-  redirect: string | null
-  meta: {
-    title: string
-    layout?: string
-    isIframe?: boolean
-    icon?: string
-    isAffix?: boolean
-    isKeepAlive?: boolean
-    link?: string
-    isHide?: boolean
-  }
-  auth: string | null
-  createTime: string
-  updateTime: string | null
-  children?: MenuItem[]
-}
+export type { MenuType, MenuItem }
 
 /** 递归展平树形数据，用于上级菜单选择 */
 function flattenTree(items: MenuItem[]): MenuItem[] {
@@ -123,7 +105,10 @@ export type MenuFormDialogProps = {
   onOpenChange: (open: boolean) => void
   editItem?: MenuItem | null
   menuList: MenuItem[]
-  onSuccess: () => void
+  /** 只读模式：用于"详情"展示，禁用所有表单字段 */
+  readOnly?: boolean
+  /** 提交成功后的额外回调（可选；查询缓存已自动失效） */
+  onSuccess?: () => void
 }
 
 /** 水平行布局 className（标签左对齐、输入右侧弹性填充） */
@@ -135,12 +120,14 @@ export function MenuFormDialog({
   onOpenChange,
   editItem,
   menuList,
+  readOnly = false,
   onSuccess,
 }: MenuFormDialogProps) {
   const isEdit = !!editItem
 
+  const queryClient = useQueryClient()
   const form = useForm<FormValues>({ defaultValues: EMPTY_VALUES })
-  const menuType = form.watch("menuType")
+  const menuType = useWatch({ control: form.control, name: "menuType" })
 
   /** 弹窗打开或编辑对象变化时，重置表单 */
   useEffect(() => {
@@ -159,9 +146,23 @@ export function MenuFormDialog({
   const showLink = menuType === "iframe" || menuType === "link"
   const showIcon = showPageIframe || menuType === "link"
 
-  const onSubmit = form.handleSubmit(async (values) => {
-    const payload = {
-      ...(isEdit ? { id: editItem!.id } : {}),
+  /** 提交成功后：失效菜单树缓存（触发自动重新请求）并关闭弹窗 */
+  const mutation = useMutation({
+    mutationFn: async (payload: MenuMutationPayload) => {
+      if (isEdit) {
+        return updateMenu({ ...payload, id: editItem!.id })
+      }
+      return createMenu(payload)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: MENU_QUERY_KEY })
+      onOpenChange(false)
+      onSuccess?.()
+    },
+  })
+
+  const onSubmit = form.handleSubmit((values) => {
+    const payload: MenuMutationPayload = {
       parentId: values.parentId ? Number(values.parentId) : null,
       name: values.title,
       menuType: values.menuType,
@@ -183,22 +184,14 @@ export function MenuFormDialog({
         ...(showLink && values.link ? { link: values.link } : {}),
       },
     }
-
-    const res = isEdit
-      ? await httpRequest.put("/menu/update", payload)
-      : await httpRequest.post("/menu/create", payload)
-
-    if (isSuccess(res.code)) {
-      onOpenChange(false)
-      onSuccess()
-    }
+    mutation.mutate(payload)
   })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-2xl top-[25%] translate-y-0">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "编辑" : "新增"}</DialogTitle>
+          <DialogTitle>{readOnly ? "详情" : isEdit ? "编辑" : "新增"}</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
@@ -236,9 +229,10 @@ export function MenuFormDialog({
                     <FormLabel className={LABEL_CLS}>上级菜单</FormLabel>
                     <SelectRoot
                       value={field.value || "__none__"}
-                      onValueChange={(v) =>
+                      onValueChange={readOnly ? undefined : (v) =>
                         field.onChange(v === "__none__" ? "" : v)
                       }
+                      disabled={readOnly}
                     >
                       <FormControl>
                         <SelectTrigger className="flex-1">
@@ -262,15 +256,15 @@ export function MenuFormDialog({
               <FormField
                 control={form.control}
                 name="title"
-                rules={{ required: "菜单名称为必填项" }}
+                rules={readOnly ? undefined : { required: "菜单名称为必填项" }}
                 render={({ field }) => (
                   <FormItem className={ROW_CLS}>
                     <FormLabel className={LABEL_CLS}>
-                      <span className="text-destructive mr-0.5">*</span>菜单名称
+                      {!readOnly && <span className="text-destructive mr-0.5">*</span>}菜单名称
                     </FormLabel>
                     <div className="flex-1 space-y-1">
                       <FormControl>
-                        <Input {...field} />
+                        <Input {...field} disabled={readOnly} />
                       </FormControl>
                       <FormMessage />
                     </div>
@@ -286,7 +280,7 @@ export function MenuFormDialog({
                   <FormItem className={ROW_CLS}>
                     <FormLabel className={LABEL_CLS}>权限标识</FormLabel>
                     <FormControl>
-                      <Input className="flex-1" {...field} />
+                      <Input className="flex-1" {...field} disabled={readOnly} />
                     </FormControl>
                   </FormItem>
                 )}
@@ -300,7 +294,7 @@ export function MenuFormDialog({
                   <FormItem className={ROW_CLS}>
                     <FormLabel className={LABEL_CLS}>排序</FormLabel>
                     <FormControl>
-                      <Input type="number" className="w-24" {...field} />
+                      <Input type="number" className="w-24" {...field} disabled={readOnly} />
                     </FormControl>
                   </FormItem>
                 )}
@@ -315,7 +309,7 @@ export function MenuFormDialog({
                     <FormItem className={ROW_CLS}>
                       <FormLabel className={LABEL_CLS}>菜单图标</FormLabel>
                       <FormControl>
-                        <Input className="flex-1" {...field} />
+                        <Input className="flex-1" {...field} disabled={readOnly} />
                       </FormControl>
                     </FormItem>
                   )}
@@ -331,7 +325,7 @@ export function MenuFormDialog({
                     <FormItem className={ROW_CLS}>
                       <FormLabel className={LABEL_CLS}>路由路径</FormLabel>
                       <FormControl>
-                        <Input className="flex-1" {...field} />
+                        <Input className="flex-1" {...field} disabled={readOnly} />
                       </FormControl>
                     </FormItem>
                   )}
@@ -348,9 +342,10 @@ export function MenuFormDialog({
                       <FormLabel className={LABEL_CLS}>布局</FormLabel>
                       <SelectRoot
                         value={field.value || "__default__"}
-                        onValueChange={(v) =>
+                        onValueChange={readOnly ? undefined : (v) =>
                           field.onChange(v === "__default__" ? "" : v)
                         }
+                        disabled={readOnly}
                       >
                         <FormControl>
                           <SelectTrigger className="flex-1">
@@ -379,8 +374,9 @@ export function MenuFormDialog({
                       <FormControl>
                         <Switch.Root
                           checked={field.value}
-                          onCheckedChange={field.onChange}
-                          className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full bg-input transition-colors focus:outline-none data-[state=checked]:bg-primary"
+                          onCheckedChange={readOnly ? undefined : field.onChange}
+                          disabled={readOnly}
+                          className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full bg-input transition-colors focus:outline-none data-[state=checked]:bg-primary disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Switch.Thumb className="block h-4 w-4 rounded-full bg-white shadow transition-transform data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0.5" />
                         </Switch.Root>
@@ -401,8 +397,9 @@ export function MenuFormDialog({
                       <FormControl>
                         <Switch.Root
                           checked={field.value}
-                          onCheckedChange={field.onChange}
-                          className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full bg-input transition-colors focus:outline-none data-[state=checked]:bg-primary"
+                          onCheckedChange={readOnly ? undefined : field.onChange}
+                          disabled={readOnly}
+                          className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full bg-input transition-colors focus:outline-none data-[state=checked]:bg-primary disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Switch.Thumb className="block h-4 w-4 rounded-full bg-white shadow transition-transform data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0.5" />
                         </Switch.Root>
@@ -423,8 +420,9 @@ export function MenuFormDialog({
                       <FormControl>
                         <Switch.Root
                           checked={field.value}
-                          onCheckedChange={field.onChange}
-                          className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full bg-input transition-colors focus:outline-none data-[state=checked]:bg-primary"
+                          onCheckedChange={readOnly ? undefined : field.onChange}
+                          disabled={readOnly}
+                          className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full bg-input transition-colors focus:outline-none data-[state=checked]:bg-primary disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Switch.Thumb className="block h-4 w-4 rounded-full bg-white shadow transition-transform data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0.5" />
                         </Switch.Root>
@@ -443,7 +441,7 @@ export function MenuFormDialog({
                     <FormItem className={ROW_CLS}>
                       <FormLabel className={LABEL_CLS}>链接地址</FormLabel>
                       <FormControl>
-                        <Input className="flex-1" {...field} />
+                        <Input className="flex-1" {...field} disabled={readOnly} />
                       </FormControl>
                     </FormItem>
                   )}
@@ -452,17 +450,30 @@ export function MenuFormDialog({
             </div>
 
             <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={form.formState.isSubmitting}
-              >
-                取消
-              </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? "提交中..." : "确定"}
-              </Button>
+              {readOnly ? (
+                /* 只读模式只显示关闭按钮 */
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                >
+                  关闭
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                    disabled={mutation.isPending}
+                  >
+                    取消
+                  </Button>
+                  <Button type="submit" disabled={mutation.isPending}>
+                    {mutation.isPending ? "提交中..." : "确定"}
+                  </Button>
+                </>
+              )}
             </DialogFooter>
           </form>
         </Form>

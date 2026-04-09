@@ -7,6 +7,7 @@ import {
   LogOut,
 } from "lucide-react"
 import Link from "next/link"
+import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 
 import { Logo } from "@/components/logo"
@@ -28,7 +29,9 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { httpRequest } from "@/lib/http"
+import { AUTH_ROUTE_QUERY_KEY } from "@/services/auth-route"
 import { useAuthStore } from "@/stores/auth-store"
+import { clearRoutesCookie } from "@/lib/auth-cookie"
 import type { AuthUser } from "@/types/auth"
 
 function UserAvatarDisplay({ user }: { user: AuthUser }) {
@@ -57,6 +60,7 @@ function UserAvatarDisplay({ user }: { user: AuthUser }) {
 export function NavUser({ user }: { user: AuthUser | null }) {
   const { isMobile } = useSidebar()
   const router = useRouter()
+  const queryClient = useQueryClient()
   const clearSession = useAuthStore((s) => s.clearSession)
 
   if (!user) {
@@ -87,6 +91,8 @@ export function NavUser({ user }: { user: AuthUser | null }) {
     } catch {
       // ignore error, toast already handled in http interceptor
     } finally {
+      queryClient.removeQueries({ queryKey: [...AUTH_ROUTE_QUERY_KEY] })
+      clearRoutesCookie()
       clearSession()
       router.push("/sign-in")
     }

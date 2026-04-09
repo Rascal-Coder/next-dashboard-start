@@ -3,19 +3,15 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { Command as CommandPrimitive } from "cmdk"
-import {
-  Search,
-  LayoutPanelLeft,
-  LayoutDashboard,
-  AlertTriangle,
-  ShieldCheck,
-  Menu,
-  Users,
-  type LucideIcon,
-} from "lucide-react"
+import { Search } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/animate-ui/components/radix/dialog"
 import { cn } from "@/lib/utils"
+import { AUTH_ROUTE_QUERY_KEY, fetchAuthRoute } from "@/services/auth-route"
+import { useAuthStore } from "@/stores/auth-store"
+import { filterMenuForSidebar, hrefForMenuItem, resolveIcon } from "@/components/nav-menu-tree"
+import type { MenuItem } from "@/services/menu"
 
 const Command = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive>,
@@ -105,7 +101,7 @@ interface SearchItem {
   title: string
   url: string
   group: string
-  icon?: LucideIcon
+  iconName?: string
 }
 
 interface CommandSearchProps {
@@ -113,35 +109,48 @@ interface CommandSearchProps {
   onOpenChange: (open: boolean) => void
 }
 
+/** 递归将菜单树铺平为可搜索条目，分组暂时统一写死（待后端接口返回分组信息后替换） */
+function flattenMenuItems(items: MenuItem[]): SearchItem[] {
+  const result: SearchItem[] = []
+  for (const item of items) {
+    if (item.children?.length) {
+      result.push(...flattenMenuItems(item.children))
+    } else {
+      const url = hrefForMenuItem(item)
+      if (url && url !== "#") {
+        result.push({
+          title: item.meta.title,
+          url,
+          group: "导航菜单",
+          iconName: item.meta.icon,
+        })
+      }
+    }
+  }
+  return result
+}
+
 export function CommandSearch({ open, onOpenChange }: CommandSearchProps) {
   const router = useRouter()
   const commandRef = React.useRef<HTMLDivElement>(null)
+  const token = useAuthStore((s) => s.token)
 
-  const searchItems: SearchItem[] = [
-    // Dashboards
-    { title: "Dashboard 1", url: "/dashboard", group: "Dashboards", icon: LayoutDashboard },
-    { title: "Dashboard 2", url: "/dashboard-2", group: "Dashboards", icon: LayoutPanelLeft },
+  const { data: routeMenu = [] } = useQuery({
+    queryKey: [...AUTH_ROUTE_QUERY_KEY, token],
+    queryFn: fetchAuthRoute,
+    enabled: Boolean(token),
+    staleTime: 5 * 60 * 1000,
+  })
 
-    // Errors
-    { title: "Unauthorized", url: "/errors/unauthorized", group: "Errors", icon: AlertTriangle },
-    { title: "Forbidden", url: "/errors/forbidden", group: "Errors", icon: AlertTriangle },
-    { title: "Not Found", url: "/errors/not-found", group: "Errors", icon: AlertTriangle },
-    { title: "Internal Server Error", url: "/errors/internal-server-error", group: "Errors", icon: AlertTriangle },
-    { title: "Under Maintenance", url: "/errors/under-maintenance", group: "Errors", icon: AlertTriangle },
-
-    // Settings
-    { title: "Roles & Permissions", url: "/settings/roles-permissions", group: "Settings", icon: ShieldCheck },
-    { title: "Menu Management", url: "/settings/menu-management", group: "Settings", icon: Menu },
-    { title: "User Management", url: "/settings/user-management", group: "Settings", icon: Users },
-  ]
-
-  const groupedItems = searchItems.reduce((acc, item) => {
-    if (!acc[item.group]) {
-      acc[item.group] = []
-    }
-    acc[item.group].push(item)
-    return acc
-  }, {} as Record<string, SearchItem[]>)
+  const groupedItems = React.useMemo(() => {
+    const filtered = filterMenuForSidebar(routeMenu)
+    const flat = flattenMenuItems(filtered)
+    return flat.reduce((acc, item) => {
+      if (!acc[item.group]) acc[item.group] = []
+      acc[item.group].push(item)
+      return acc
+    }, {} as Record<string, SearchItem[]>)
+  }, [routeMenu])
 
   const handleSelect = (url: string) => {
     router.push(url)
@@ -171,14 +180,14 @@ export function CommandSearch({ open, onOpenChange }: CommandSearchProps) {
             {Object.entries(groupedItems).map(([group, items]) => (
               <CommandGroup key={group} heading={group}>
                 {items.map((item) => {
-                  const Icon = item.icon
+                  const Icon = resolveIcon(item.iconName)
                   return (
                     <CommandItem
                       key={item.url}
                       value={item.title}
                       onSelect={() => handleSelect(item.url)}
                     >
-                      {Icon && <Icon className="mr-2 h-4 w-4" />}
+                      {Icon && React.createElement(Icon, { className: "mr-2 h-4 w-4" })}
                       {item.title}
                     </CommandItem>
                   )

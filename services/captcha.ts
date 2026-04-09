@@ -17,6 +17,5 @@ export async function getCaptcha(): Promise<CaptchaResult> {
   if (!isSuccess(res.code) || res.data == null) {
     throw new Error(res.msg || "获取验证码失败")
   }
-  const { img, id } = res.data as CaptchaResult
-  return { img, id }
+  return res.data
 }

@@ -153,6 +153,13 @@ html {
   scroll-behavior: smooth;
 }
 
+/* 骨架屏流光扫描动画 */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 /* Logo carousel animation */
 @keyframes logo-scroll {
   0% {
